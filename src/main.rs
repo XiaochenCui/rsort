@@ -1,4 +1,7 @@
+// benzhutiandbenqingqin😀😀😀😀glovetogetherandmakeasmallpigandsmallchikenfamilyhavemuchloveandsunnyandwarm
+
 use std::{
+    collections::VecDeque,
     env,
     fs::{self, File},
     io::{BufRead, BufReader, Write},
@@ -8,6 +11,7 @@ use std::{
 
 const KB: usize = 1024;
 const MB: usize = 1024 * 1024;
+const MAX_STRING: &'static str = "9999999999999";
 
 fn main() -> std::io::Result<()> {
     let args: Vec<String> = env::args().collect();
@@ -27,15 +31,14 @@ fn main() -> std::io::Result<()> {
     let mut chunk_paths = Vec::new();
     for line in buffered.lines().map(|l| l.unwrap()) {
         let line_len = line.len();
-        if temp_size + line_len < chunk_size_limit {
-            temp_lines.push(line);
-            temp_size += line_len
-        } else {
+        temp_lines.push(line);
+        temp_size += line_len;
+        if temp_size > chunk_size_limit {
             // handle it: sort, then write to disk
             let path = format!("/tmp/{:05}.chunk", chunk_index);
             chunk_paths.push(path.clone());
             let handle = thread::spawn(move || {
-                // write_chunk(&path, temp_lines);
+                write_chunk(&path, temp_lines);
             });
             handles.push(handle);
 
@@ -45,10 +48,19 @@ fn main() -> std::io::Result<()> {
         }
     }
 
+    // write remaining lines
+    println!("ramaining len: {}", temp_lines.len());
+    if temp_lines.len() > 0 {
+        let path = format!("/tmp/{:05}.chunk", chunk_index);
+        let handle = thread::spawn(move || {
+            write_chunk(&path, temp_lines);
+        });
+        handles.push(handle);
+    }
+
     for h in handles {
         h.join().unwrap();
     }
-    println!("split chunks success");
 
     // merge
     // 1. collect readers
@@ -60,17 +72,17 @@ fn main() -> std::io::Result<()> {
     }
 
     // 2. init bucket
-    let mut buckets: Vec<Vec<String>> = Vec::new();
+    let mut buckets: Vec<VecDeque<String>> = Vec::new();
     let bucket_size = 100;
     for reader in readers.iter_mut() {
-        let mut b = Vec::new();
+        let mut b = VecDeque::with_capacity(bucket_size);
         for line in reader
             .lines()
             .take(bucket_size)
             .into_iter()
             .map(|l| l.unwrap())
         {
-            b.push(line);
+            b.push_back(line);
         }
         buckets.push(b);
     }
@@ -78,17 +90,19 @@ fn main() -> std::io::Result<()> {
     // 3. init headers
     let mut headers: Vec<String> = Vec::new();
     for b in buckets.iter_mut() {
-        headers.push(b.pop().unwrap());
+        headers.push(b.pop_front().unwrap());
     }
 
     // 4. merge
     let dst_path = format!("{}.sorted", src_path);
     let mut dst = File::create(&dst_path).unwrap();
     let bucket_count = buckets.len();
-    let mut min: &str = "999999999999999";
     let mut min_slot: usize = 0;
-    let mut empty_chunk_count = 0;
+    let mut empty_bucket_count = 0;
+    let mut min: &str;
     loop {
+        min = MAX_STRING;
+
         // found min str
         for i in 0..bucket_count {
             if headers[i].as_str() < min {
@@ -97,38 +111,36 @@ fn main() -> std::io::Result<()> {
             }
         }
 
-        // println!("headers: {:#?}", headers);
-        // println!("min: {}", min);
-        // println!("min slot: {}", min_slot);
-
         // write to dst
+        println!("write {} from bucket {}", min, min_slot);
         dst.write_all(min.as_bytes()).unwrap();
         dst.write(b"\n").unwrap();
-        // println!("write: {}", min);
         min = "";
-        // break;
 
-        match buckets[min_slot].pop() {
+        match buckets[min_slot].pop_front() {
             Some(s) => {
                 headers[min_slot] = s;
             }
             None => {
+                println!("bucket {} is empty, read from file", min_slot);
+                let mut iter = readers.get_mut(min_slot).unwrap().lines().peekable();
+
                 // read from chunk file
-                for line in readers.get_mut(min_slot).unwrap().lines().take(bucket_size) {
-                    match line {
-                        Ok(s) => {
-                            // push to bucket
-                            buckets[min_slot].push(s);
-                        }
-                        Err(_) => {
-                            headers[min_slot] = "9".to_string();
-                            empty_chunk_count += 1;
-                        }
-                    }
+                for line in iter.by_ref().take(bucket_size).map(|l| l.unwrap()) {
+                    // push to bucket
+                    buckets[min_slot].push_back(line);
+                    println!("???");
+                    exit(1);
                 }
 
-                if empty_chunk_count == bucket_count {
-                    break;
+                if buckets[min_slot].len() == 0 {
+                    println!("bucket {} is empty", min_slot);
+                    headers[min_slot] = MAX_STRING.to_string();
+                    empty_bucket_count += 1;
+
+                    if empty_bucket_count == bucket_count {
+                        break;
+                    }
                 }
             }
         }
@@ -140,11 +152,11 @@ fn main() -> std::io::Result<()> {
 fn write_chunk(chunk_path: &str, mut lines: Vec<String>) {
     lines.sort();
     let mut chunk = File::create(&chunk_path).unwrap();
+    println!("write to {}, lines: {}", chunk_path, lines.len());
     for mut l in lines {
         l.push('\n');
         chunk.write_all(l.as_bytes()).unwrap();
     }
-    println!("write to {}", chunk_path);
 }
 
 #[cfg(test)]
@@ -154,7 +166,7 @@ mod tests {
 
     #[test]
     fn generate() {
-        let count = 100 * 10000;
+        let count = 10000;
         let mut rng = rand::thread_rng();
         let path = "/tmp/source";
         let mut file = File::create(path).unwrap();
