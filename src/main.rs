@@ -10,7 +10,8 @@ use std::{
 };
 
 const KB: usize = 1024;
-// const MB: usize = 1024 * 1024;
+const MB: usize = 1024 * 1024;
+const CHUNK_SIZE_LIMIT: usize = 50 * MB;
 const MAX_STRING: &'static str = "\x7F\x7F\x7F";
 
 fn main() -> std::io::Result<()> {
@@ -25,7 +26,6 @@ fn main() -> std::io::Result<()> {
 }
 
 fn sort(src_path: &str) -> std::io::Result<()> {
-    let chunk_size_limit: usize = 50 * KB;
     let input = File::open(src_path)?;
     let buffered = BufReader::new(input);
     let mut temp_size: usize = 0;
@@ -37,7 +37,7 @@ fn sort(src_path: &str) -> std::io::Result<()> {
         let line_len = line.len();
         temp_lines.push(line);
         temp_size += line_len;
-        if temp_size > chunk_size_limit {
+        if temp_size > CHUNK_SIZE_LIMIT {
             // handle it: sort, then write to disk
             let path = format!("/tmp/{:05}.chunk", chunk_index);
             chunk_paths.push(path.clone());
@@ -185,7 +185,7 @@ mod tests {
         let original_path = "/tmp/source";
         let sorted_path = format!("{}.sorted", original_path);
 
-        for count in vec![10, 100, 1000, 10000, 10 * 10000] {
+        for count in vec![10, 100, 1000, 10000, 10 * 10000, 100 * 10000, 1000 * 10000] {
             let mut file = File::create(original_path).unwrap();
             let mut s: String;
             for _i in 0..count {
