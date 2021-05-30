@@ -4,4 +4,5 @@ rust:
   - stable
 
 script:
-  - make test
+  # https://docs.travis-ci.com/user/common-build-problems/#build-times-out-because-no-output-was-received
+  - travis_wait 120 make test
