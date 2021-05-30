@@ -262,11 +262,12 @@ mod tests {
             (200 * GB, dst_dir.join("random_str_200GB")),
         ];
 
+        let mut rng = rand::thread_rng();
+        let line_size: u64 = 1024;
+
         for (target_size, dst) in gen_vec {
             let mut file = File::create(&dst).unwrap();
             let mut current_size: u64 = 0;
-            let mut rng = rand::thread_rng();
-            let line_size: u64 = 1024;
             let mut line_count = 0;
             while current_size < target_size {
                 let mut s: String = (&mut rng)
