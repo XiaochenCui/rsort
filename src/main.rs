@@ -172,7 +172,7 @@ fn write_chunk(chunk_path: &str, mut lines: Vec<String>) {
 
 #[cfg(test)]
 mod tests {
-    use crate::{sort, GB, KB, MB};
+    use crate::{sort, GB, MB};
     use rand::{distributions::Alphanumeric, Rng};
     use std::{
         fs::{self, File},
