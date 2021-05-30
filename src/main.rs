@@ -132,10 +132,12 @@ fn sort(src_path: &str) -> std::io::Result<()> {
             }
             None => {
                 // println!("bucket {} is empty, read from file", min_slot);
-                let mut iter = readers.get_mut(min_slot).unwrap().lines().peekable();
+                let mut iter =
+                    readers.get_mut(min_slot).unwrap().lines().peekable();
 
                 // read from chunk file
-                for line in iter.by_ref().take(bucket_size).map(|l| l.unwrap()) {
+                for line in iter.by_ref().take(bucket_size).map(|l| l.unwrap())
+                {
                     buckets[min_slot].push_back(line);
                 }
 
@@ -170,7 +172,10 @@ fn write_chunk(chunk_path: &str, mut lines: Vec<String>) {
 #[cfg(test)]
 mod tests {
     use rand::Rng;
-    use std::{fs::{self, File}, io::{BufRead, BufReader, Write}};
+    use std::{
+        fs::{self, File},
+        io::{BufRead, BufReader, Write},
+    };
 
     use crate::sort;
 
