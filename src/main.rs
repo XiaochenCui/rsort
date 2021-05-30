@@ -11,7 +11,7 @@ use std::{
 
 const KB: usize = 1024;
 const MB: usize = 1024 * 1024;
-const MAX_STRING: &'static str = "9999999999999";
+const MAX_STRING: &'static str = "\x7F\x7F\x7F";
 
 fn main() -> std::io::Result<()> {
     let args: Vec<String> = env::args().collect();
@@ -53,7 +53,7 @@ fn sort(src_path: &str) -> std::io::Result<()> {
     }
 
     // write remaining lines
-    println!("ramaining len: {}", temp_lines.len());
+    // println!("ramaining len: {}", temp_lines.len());
     if temp_lines.len() > 0 {
         let path = format!("/tmp/{:05}.chunk", chunk_index);
         chunk_paths.push(path.clone());
@@ -121,7 +121,7 @@ fn sort(src_path: &str) -> std::io::Result<()> {
         }
 
         // write to dst
-        println!("write {} from bucket {}", min, min_slot);
+        // println!("write {} from bucket {}", min, min_slot);
         dst.write_all(min.as_bytes()).unwrap();
         dst.write(b"\n").unwrap();
         min = "";
@@ -131,7 +131,7 @@ fn sort(src_path: &str) -> std::io::Result<()> {
                 headers[min_slot] = s;
             }
             None => {
-                println!("bucket {} is empty, read from file", min_slot);
+                // println!("bucket {} is empty, read from file", min_slot);
                 let mut iter = readers.get_mut(min_slot).unwrap().lines().peekable();
 
                 // read from chunk file
@@ -160,7 +160,7 @@ fn sort(src_path: &str) -> std::io::Result<()> {
 fn write_chunk(chunk_path: &str, mut lines: Vec<String>) {
     lines.sort();
     let mut chunk = File::create(&chunk_path).unwrap();
-    println!("write to {}, lines: {}", chunk_path, lines.len());
+    // println!("write to {}, lines: {}", chunk_path, lines.len());
     for mut l in lines {
         l.push('\n');
         chunk.write_all(l.as_bytes()).unwrap();
@@ -170,17 +170,18 @@ fn write_chunk(chunk_path: &str, mut lines: Vec<String>) {
 #[cfg(test)]
 mod tests {
     use rand::Rng;
-    use std::{fs::File, io::Write};
+    use std::{fs::{self, File}, io::{BufRead, BufReader, Write}};
 
     use crate::sort;
 
     #[test]
     fn generate() {
         let mut rng = rand::thread_rng();
-        let path = "/tmp/source";
+        let original_path = "/tmp/source";
+        let sorted_path = format!("{}.sorted", original_path);
 
-        for count in vec![10, 100, 1000] {
-            let mut file = File::create(path).unwrap();
+        for count in vec![10, 100, 1000, 10000, 10 * 10000, 100 * 10000, 1000 * 10000, 10000 * 10000] {
+            let mut file = File::create(original_path).unwrap();
             let mut s: String;
             for _i in 0..count {
                 s = format!("{:012}\n", rng.gen::<u32>());
@@ -188,7 +189,45 @@ mod tests {
             }
             println!("write source success, count: {}", count);
 
-            sort(path);
+            sort(original_path);
+
+            // check size is identical
+            let original_size = fs::metadata(&original_path).unwrap().len();
+            let sorted_size = fs::metadata(&sorted_path).unwrap().len();
+            assert_eq!(original_size, sorted_size);
+            println!("size in identical: {}", original_size);
+
+            // check sorted
+            let input = File::open(&sorted_path).unwrap();
+            let buffered = BufReader::new(input);
+            let mut previous_line = "".to_string();
+            for line in buffered.lines().map(|l| l.unwrap()) {
+                if line >= previous_line {
+                    previous_line = line;
+                    continue;
+                } else {
+                    panic!("sort incorrect: {} -> {}", previous_line, line)
+                }
+            }
         }
+    }
+
+    #[test]
+    fn test_str_cmp() {
+        let mut strs = vec![
+            "",
+            "9999",
+            "ffff",
+            "11111111111",
+            "ffff",
+            "9999",
+            "\\x52",
+            "\\xff",
+            "\x52",
+            "\x7f\x7f",
+            "\x7F",
+        ];
+        strs.sort();
+        println!("{:#?}", strs)
     }
 }
