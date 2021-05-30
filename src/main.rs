@@ -25,7 +25,7 @@ fn main() -> std::io::Result<()> {
 }
 
 fn sort(src_path: &str) -> std::io::Result<()> {
-    let chunk_size_limit: usize = 50 * MB;
+    let chunk_size_limit: usize = 50 * KB;
     let input = File::open(src_path)?;
     let buffered = BufReader::new(input);
     let mut temp_size: usize = 0;
@@ -180,7 +180,7 @@ mod tests {
         let original_path = "/tmp/source";
         let sorted_path = format!("{}.sorted", original_path);
 
-        for count in vec![10, 100, 1000, 10000, 10 * 10000, 100 * 10000, 1000 * 10000, 10000 * 10000] {
+        for count in vec![10, 100, 1000, 10000, 10 * 10000] {
             let mut file = File::create(original_path).unwrap();
             let mut s: String;
             for _i in 0..count {
