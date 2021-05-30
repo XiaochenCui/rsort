@@ -3,3 +3,9 @@ test:
 
 fmt:
 	rustup run nightly cargo fmt
+
+gen:
+	cargo test -- tests::generate --nocapture
+
+cp:
+	rsync -zvha --exclude=".git/" --filter=':- .gitignore' ../rsort pi-root:/root/

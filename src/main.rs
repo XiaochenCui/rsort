@@ -9,9 +9,10 @@ use std::{
     thread,
 };
 
-const KB: usize = 1024;
-const MB: usize = 1024 * 1024;
-const CHUNK_SIZE_LIMIT: usize = 50 * MB;
+const KB: u64 = 1024;
+const MB: u64 = 1024 * 1024;
+const GB: u64 = 1024 * 1024 * 1024;
+const CHUNK_SIZE_LIMIT: u64 = 50 * MB;
 const MAX_STRING: &'static str = "\x7F\x7F\x7F";
 
 fn main() -> std::io::Result<()> {
@@ -28,7 +29,7 @@ fn main() -> std::io::Result<()> {
 fn sort(src_path: &str) -> std::io::Result<()> {
     let input = File::open(src_path)?;
     let buffered = BufReader::new(input);
-    let mut temp_size: usize = 0;
+    let mut temp_size: u64 = 0;
     let mut temp_lines = Vec::new();
     let mut chunk_index = 0;
     let mut handles = Vec::new();
@@ -36,7 +37,7 @@ fn sort(src_path: &str) -> std::io::Result<()> {
     for line in buffered.lines().map(|l| l.unwrap()) {
         let line_len = line.len();
         temp_lines.push(line);
-        temp_size += line_len;
+        temp_size += line_len as u64;
         if temp_size > CHUNK_SIZE_LIMIT {
             // handle it: sort, then write to disk
             let path = format!("/tmp/{:05}.chunk", chunk_index);
@@ -171,13 +172,13 @@ fn write_chunk(chunk_path: &str, mut lines: Vec<String>) {
 
 #[cfg(test)]
 mod tests {
-    use rand::Rng;
+    use crate::{sort, GB, KB, MB};
+    use rand::{distributions::Alphanumeric, Rng};
     use std::{
         fs::{self, File},
         io::{BufRead, BufReader, Write},
+        path::Path,
     };
-
-    use crate::sort;
 
     #[test]
     fn test() {
@@ -185,7 +186,17 @@ mod tests {
         let original_path = "/tmp/source";
         let sorted_path = format!("{}.sorted", original_path);
 
-        for count in vec![10, 100, 1000, 10000, 10 * 10000, 100 * 10000, 1000 * 10000, 10000 * 10000, 10 * 10000 * 10000] {
+        for count in vec![
+            10,
+            100,
+            1000,
+            10000,
+            10 * 10000,
+            100 * 10000,
+            1000 * 10000,
+            10000 * 10000,
+            10 * 10000 * 10000,
+        ] {
             let mut file = File::create(original_path).unwrap();
             let mut s: String;
             for _i in 0..count {
@@ -238,5 +249,46 @@ mod tests {
 
     #[test]
     fn generate() {
+        let dst_dir = Path::new("/media/pi/xiaochen1/data");
+        if !dst_dir.exists() {
+            println!("dst dir {:?} not exist, exit", dst_dir);
+            return;
+        }
+
+        let gen_vec = vec![
+            (1 * MB, dst_dir.join("random_str_1MB")),
+            (100 * MB, dst_dir.join("random_str_100MB")),
+            (10 * GB, dst_dir.join("random_str_10GB")),
+            (200 * GB, dst_dir.join("random_str_200GB")),
+        ];
+
+        for (target_size, dst) in gen_vec {
+            let mut file = File::create(&dst).unwrap();
+            let mut current_size: u64 = 0;
+            let mut rng = rand::thread_rng();
+            let line_size: u64 = 1024;
+            let mut line_count = 0;
+            while current_size < target_size {
+                let mut s: String = (&mut rng)
+                    .sample_iter(Alphanumeric)
+                    .take(line_size as usize)
+                    .map(char::from)
+                    .collect();
+                s.push('\n');
+                file.write_all(s.as_bytes()).unwrap();
+
+                current_size += line_size;
+                line_count += 1;
+            }
+
+            println!(
+                "write {} lines ({} bytes, {} MB, {} GB), strings to file {:?}",
+                line_count,
+                current_size,
+                current_size / MB,
+                current_size / GB,
+                dst,
+            )
+        }
     }
 }
