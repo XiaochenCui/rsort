@@ -3,14 +3,14 @@
 use std::{
     collections::VecDeque,
     env,
-    fs::{self, File},
+    fs::File,
     io::{BufRead, BufReader, Write},
     process::exit,
     thread,
 };
 
 const KB: usize = 1024;
-const MB: usize = 1024 * 1024;
+// const MB: usize = 1024 * 1024;
 const MAX_STRING: &'static str = "\x7F\x7F\x7F";
 
 fn main() -> std::io::Result<()> {
@@ -124,7 +124,7 @@ fn sort(src_path: &str) -> std::io::Result<()> {
         // println!("write {} from bucket {}", min, min_slot);
         dst.write_all(min.as_bytes()).unwrap();
         dst.write(b"\n").unwrap();
-        min = "";
+        // min = "";
 
         match buckets[min_slot].pop_front() {
             Some(s) => {
@@ -194,7 +194,7 @@ mod tests {
             }
             println!("write source success, count: {}", count);
 
-            sort(original_path);
+            sort(original_path).unwrap();
 
             // check size is identical
             let original_size = fs::metadata(&original_path).unwrap().len();
