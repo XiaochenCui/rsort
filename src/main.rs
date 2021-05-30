@@ -214,8 +214,6 @@ mod tests {
                     panic!("sort incorrect: {} -> {}", previous_line, line)
                 }
             }
-
-            println!("current memory usage: {}", procinfo::pid::statm_self)
         }
     }
 
