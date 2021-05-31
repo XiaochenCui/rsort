@@ -10,3 +10,6 @@ gen:
 cp:
 	# rsync -zvha --exclude=".git/" --filter=':- .gitignore' ../rsort pi-root:/root/
 	rsync -zvha --exclude=".git/" --filter=':- .gitignore' ../rsort magus-90:~/project/
+
+install:
+	cargo install --path .

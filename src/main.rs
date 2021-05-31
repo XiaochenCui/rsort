@@ -5,6 +5,7 @@ use std::{
     env,
     fs::File,
     io::{BufRead, BufReader, Write},
+    path::{Path, PathBuf},
     process::exit,
     thread,
 };
@@ -26,8 +27,17 @@ fn main() -> std::io::Result<()> {
     return sort(src_path);
 }
 
+fn get_temp_path(src_path: &str) -> PathBuf {
+    let src = Path::new(src_path);
+    let src_dir = src.parent().unwrap();
+    return src_dir.join("rsort.tmp");
+}
+
 fn sort(src_path: &str) -> std::io::Result<()> {
     let input = File::open(src_path)?;
+
+    let tmp_dir = get_temp_path(src_path);
+
     let buffered = BufReader::new(input);
     let mut temp_size: u64 = 0;
     let mut temp_lines = Vec::new();
@@ -40,10 +50,10 @@ fn sort(src_path: &str) -> std::io::Result<()> {
         temp_size += line_len as u64;
         if temp_size > CHUNK_SIZE_LIMIT {
             // handle it: sort, then write to disk
-            let path = format!("/tmp/{:05}.chunk", chunk_index);
+            let path = tmp_dir.join(format!("{:05}.chunk", chunk_index));
             chunk_paths.push(path.clone());
             let handle = thread::spawn(move || {
-                write_chunk(&path, temp_lines);
+                write_chunk(path, temp_lines);
             });
             handles.push(handle);
 
@@ -56,10 +66,10 @@ fn sort(src_path: &str) -> std::io::Result<()> {
     // write remaining lines
     // println!("ramaining len: {}", temp_lines.len());
     if temp_lines.len() > 0 {
-        let path = format!("/tmp/{:05}.chunk", chunk_index);
+        let path = tmp_dir.join(format!("{:05}.chunk", chunk_index));
         chunk_paths.push(path.clone());
         let handle = thread::spawn(move || {
-            write_chunk(&path, temp_lines);
+            write_chunk(path, temp_lines);
         });
         handles.push(handle);
     }
@@ -160,7 +170,7 @@ fn sort(src_path: &str) -> std::io::Result<()> {
     Ok(())
 }
 
-fn write_chunk(chunk_path: &str, mut lines: Vec<String>) {
+fn write_chunk(chunk_path: PathBuf, mut lines: Vec<String>) {
     lines.sort();
     let mut chunk = File::create(&chunk_path).unwrap();
     // println!("write to {}, lines: {}", chunk_path, lines.len());
