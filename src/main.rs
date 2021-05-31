@@ -249,7 +249,8 @@ mod tests {
 
     #[test]
     fn generate() {
-        let dst_dir = Path::new("/media/pi/xiaochen1/data");
+        // let dst_dir = Path::new("/media/pi/xiaochen1/data");
+        let dst_dir = Path::new("/mnt/records/rsort_test");
         if !dst_dir.exists() {
             println!("dst dir {:?} not exist, exit", dst_dir);
             return;
